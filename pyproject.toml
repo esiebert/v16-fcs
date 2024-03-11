@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "fake-charging-station"
+version = "0.1.0"
+description = ""
+authors = ["Erik Siebert <erik@switch-ev.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "~3.11.3"
+websockets = "^10.0.0"
+ocpp = "0.26.0"
+fastapi = "^0.109.0"
+uvicorn = {version = "^0.27.0", extras = ["standard"]}
+pydantic = { extras = ["dotenv"], version = "^1.10.1" }
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
