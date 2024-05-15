@@ -2,6 +2,15 @@ from datetime import datetime, timezone
 from typing import Any
 
 
+METER_VALUES_SAMPLED_DATA = [
+    "Power.Offered",
+    "Power.Active.Import",
+    "Energy.Active.Import.Register",
+    "Voltage",
+    "SoC",
+]
+
+
 def generate_meter_values(
     power_offered: float,
     energy_import_register: float,

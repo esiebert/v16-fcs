@@ -83,6 +83,8 @@ session_plan_example = Body(
         cs_id="fake_v16_station",
         password="9TaK9aKGaDaaaNaN",
         ws_url="ws://csms.url.com/cpo_url",
+        vendor="Foo",
+        model="Bar-42",
         steps=[
             ["wait", 2],
             ["plugin", 1, "12341234"],
@@ -152,6 +154,20 @@ async def send_charging_profile(connector_id: int = 1, limit: int = 100) -> Resp
     )
     await FCS.after_set_charging_profile(connector_id)
     return {"message": "Sending charging profile"}
+
+
+@app.post("/data_transfer")
+async def send_data_transfer(payload: dict[str, object] = {}) -> Response:
+    """Send a DataTransfer payload to the CSMS.
+
+    \f Truncate output for OpenAPI doc
+
+    Args:
+        connector_id: The ID of the connector
+        limit: Limit of the charging profile in W
+    """
+    await FCS.send_data_transfer(payload)
+    return {"message": "Sending data transfer payload"}
 
 
 @app.get("/stop")

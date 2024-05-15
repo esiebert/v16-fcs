@@ -8,7 +8,7 @@ from concurrent.futures._base import CancelledError
 from datetime import datetime, timezone
 from enum import Enum
 from io import TextIOWrapper
-
+import json
 from ocpp.routing import after, on
 from ocpp.v16 import ChargePoint, call, call_result
 from ocpp.v16.enums import (
@@ -365,3 +365,11 @@ class FakeChargingStation(ChargePoint):
         """Notify CSMS if status changed."""
         if self.connectors[connector_id].status_changed():
             await self.send_status_notification(connector_id)
+
+    async def send_data_transfer(self, payload: dict[str, object] = {}):
+        """Notify status of a connector."""
+        request = call.DataTransferPayload(
+            vendor_id=self.vendor, data=json.dumps(payload)
+        )
+        LOGGER.debug("Sending DataTransfer")
+        return await self.call(request)
