@@ -94,7 +94,7 @@ class FakeChargingStation(ChargePoint):
             recv_task.cancel()
             return False
 
-        await self.send_status_notification()
+        await self.send_status_notification(1)
 
         # Start heartbeat and meter values loops
         heartbeat_loop = asyncio.create_task(self.send_heartbeat())
@@ -139,15 +139,15 @@ class FakeChargingStation(ChargePoint):
             await self.call(request)
             await asyncio.sleep(int(self.configuration["HeartbeatInterval"]))
 
-    async def plug_in(self, rfid: str | None, connector_id: int = 1) -> None:
+    async def plug_in(self, rfid: str | None, connector_id: int) -> None:
         """Plug a connector, sends auth request and starts transaction."""
-        LOGGER.info(f"Plugging in {connector_id=} and requesting auth")
+        LOGGER.info(f"Plugging in {connector_id=}")
 
-        self.connectors[connector_id].status = ChargePointStatus.preparing
         self.connectors[connector_id].plugged_in = True
-        await self.send_status_notification()
+        await self.change_status(connector_id, ChargePointStatus.preparing)
 
         if rfid:
+            LOGGER.info(f"Authenticating and starting transaction {connector_id=}")
             await self.send_auth_start(connector_id, rfid)
 
     async def send_auth_start(self, connector_id: int, rfid: str) -> None:
@@ -170,12 +170,19 @@ class FakeChargingStation(ChargePoint):
 
         if resp.id_tag_info["status"] == AuthorizationStatus.accepted:
             self.connectors[connector_id].id_tag = rfid
-            self.connectors[connector_id].status = ChargePointStatus.preparing
-            await self.send_status_notification()
+            await self.change_status(connector_id, ChargePointStatus.preparing)
             return True
         return False
 
-    async def send_start_transaction(self, connector_id: int = 1) -> None:
+    async def change_status(
+        self, connector_id: int, new_status: ChargePointStatus
+    ) -> None:
+        connector = self.connectors[connector_id]
+        if connector.status != new_status:
+            connector.status = new_status
+            await self.send_status_notification(connector_id)
+
+    async def send_start_transaction(self, connector_id: int) -> None:
         """Start transaction in a connector."""
         request = call.StartTransactionPayload(
             connector_id=connector_id,
@@ -193,7 +200,7 @@ class FakeChargingStation(ChargePoint):
             await self.send_status_notification(connector_id)
 
     async def send_stop_transaction(
-        self, connector_id: int = 1, reason: Reason | None = None
+        self, connector_id: int, reason: Reason | None = None
     ) -> None:
         """Stop transaction in a connector."""
         connector = self.connectors[connector_id]
@@ -218,9 +225,8 @@ class FakeChargingStation(ChargePoint):
         await self.call(request)
         del self.transaction_connector[transaction_id]
         if connector.pending_stop_tx is None:
-            connector.status = ChargePointStatus.finishing
             connector.already_stopped = True
-            await self.send_status_notification(connector_id)
+            await self.change_status(connector_id, ChargePointStatus.finishing)
         else:
             connector.reset()
 
@@ -315,9 +321,8 @@ class FakeChargingStation(ChargePoint):
             await self.send_start_transaction(connector_id)
 
             if self.connectors[connector_id].status != ChargePointStatus.preparing:
-                self.connectors[connector_id].status = ChargePointStatus.preparing
                 self.connectors[connector_id].plugged_in = True
-                await self.send_status_notification()
+                await self.change_status(connector_id, ChargePointStatus.preparing)
 
     @on(Action.RemoteStopTransaction)
     async def on_remote_stop_transaction(self, transaction_id: str):

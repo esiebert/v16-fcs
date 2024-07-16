@@ -117,7 +117,7 @@ async def status(connector_id: int = 1) -> Response:
 
 
 @app.get("/fcs/connector/{connector_id}/plugin")
-async def plugin(connector_id: int = 1, rfid: str | None = "12341234") -> Response:
+async def plugin(connector_id: int = 1, rfid: str | None = None) -> Response:
     """Plug in a connector, and authenticate if RFID is given.
 
     Make sure the RFID is a know driver in the CSMS.
