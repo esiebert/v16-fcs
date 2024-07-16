@@ -313,9 +313,11 @@ class FakeChargingStation(ChargePoint):
     ):
         if self.connectors[connector_id].id_tag is not None:
             await self.send_start_transaction(connector_id)
-            self.connectors[connector_id].status = ChargePointStatus.preparing
-            self.connectors[connector_id].plugged_in = True
-            await self.send_status_notification()
+
+            if self.connectors[connector_id].status != ChargePointStatus.preparing:
+                self.connectors[connector_id].status = ChargePointStatus.preparing
+                self.connectors[connector_id].plugged_in = True
+                await self.send_status_notification()
 
     @on(Action.RemoteStopTransaction)
     async def on_remote_stop_transaction(self, transaction_id: str):
