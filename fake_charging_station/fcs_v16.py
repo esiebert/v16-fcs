@@ -139,7 +139,26 @@ class FakeChargingStation(ChargePoint):
             await self.call(request)
             await asyncio.sleep(int(self.configuration["HeartbeatInterval"]))
 
-    async def send_authorize(self, rfid: str, connector_id: int = 1) -> bool:
+    async def plug_in(self, rfid: str | None, connector_id: int = 1) -> None:
+        """Plug a connector, sends auth request and starts transaction."""
+        LOGGER.info(f"Plugging in {connector_id=} and requesting auth")
+
+        self.connectors[connector_id].status = ChargePointStatus.preparing
+        self.connectors[connector_id].plugged_in = True
+        await self.send_status_notification()
+
+        if rfid:
+            await self.send_auth_start(connector_id, rfid)
+
+    async def send_auth_start(self, connector_id: int, rfid: str) -> None:
+        if not self.connectors[connector_id].plugged_in:
+            LOGGER.error("Unable to authorize when nothing is plugged in")
+        if await self.send_authorize(connector_id, rfid):
+            await self.send_start_transaction(connector_id)
+        else:
+            LOGGER.error(f"Could not authorize RFID: {rfid}")
+
+    async def send_authorize(self, connector_id: int, rfid: str) -> bool:
         """Send auth request and status notification."""
         auth_request = call.AuthorizePayload(id_tag=rfid)
         resp = await self.call(auth_request)
@@ -214,16 +233,6 @@ class FakeChargingStation(ChargePoint):
         )
         LOGGER.debug("Sending StatusNotification")
         return await self.call(request)
-
-    async def plug_in(self, rfid, connector_id: int = 1) -> None:
-        """Plug a connector, sends auth request and starts transaction."""
-        LOGGER.info(f"Plugging in {connector_id=} and requesting auth")
-        authorized = await self.send_authorize(rfid, connector_id)
-        if authorized:
-            await self.send_start_transaction(connector_id)
-            self.connectors[connector_id].plugged_in = True
-        else:
-            LOGGER.error(f"Could not authorize RFID: {rfid}")
 
     async def unplug(self, connector_id: int = 1, stop_tx: bool = True) -> None:
         """Unplug a connector, and send status notification."""
@@ -347,7 +356,9 @@ class FakeChargingStation(ChargePoint):
             await self.send_status_notification(connector_id)
 
     @on(Action.SetChargingProfile)
-    async def on_set_charging_profile(self, connector_id: int, cs_charging_profiles):
+    async def on_set_charging_profile(
+        self, connector_id: int, cs_charging_profiles: dict[str, object]
+    ):
         """Set limit of the first charging schedule to connector's power offered."""
         power_offered = float(
             cs_charging_profiles["charging_schedule"]["charging_schedule_period"][0][

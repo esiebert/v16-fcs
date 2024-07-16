@@ -100,7 +100,7 @@ session_plan_example = Body(
 )
 
 
-@app.post("/session_plan")
+@app.post("/fcs/session_plan")
 async def session_plan(
     session_plan_request: SessionPlanRequest = session_plan_example,
 ) -> Response:
@@ -109,16 +109,16 @@ async def session_plan(
     return {"message": "Session plan executed"}
 
 
-@app.get("/status")
-async def status() -> Response:
+@app.get("/fcs/connector/{connector_id}/status")
+async def status(connector_id: int = 1) -> Response:
     """Send status notification to CSMS."""
-    response = await FCS.send_status_notification()
+    response = await FCS.send_status_notification(connector_id=connector_id)
     return {"message": "Sending status"}
 
 
-@app.get("/plugin")
-async def plugin(connector_id: int = 1, rfid: str = "12341234") -> Response:
-    """Plug in a connector.
+@app.get("/fcs/connector/{connector_id}/plugin")
+async def plugin(connector_id: int = 1, rfid: str | None = "12341234") -> Response:
+    """Plug in a connector, and authenticate if RFID is given.
 
     Make sure the RFID is a know driver in the CSMS.
 
@@ -126,13 +126,30 @@ async def plugin(connector_id: int = 1, rfid: str = "12341234") -> Response:
 
     Args:
         connector_id: The ID of the connector
-        rfid: RFID used to authenticate against the CSMS
+        rfid: RFID used to authenticate against the CSMS.
+            If given, tries to authenticate and starts a charging session
     """
-    await FCS.plug_in(rfid, connector_id)
+    await FCS.plug_in(rfid=rfid, connector_id=connector_id)
     return {"message": "Plugging in"}
 
 
-@app.get("/send_charging_profile")
+@app.get("/fcs/connector/{connector_id}/start")
+async def start(connector_id: int = 1, rfid: str = "12341234") -> Response:
+    """Authenticates and starts transaction at a connector.
+
+    Make sure the RFID is a know driver in the CSMS.
+
+    \f Truncate output for OpenAPI doc
+
+    Args:
+        connector_id: The ID of the connector
+        rfid: RFID used to authenticate against the CSMS.
+    """
+    await FCS.send_auth_start(connector_id=connector_id, rfid=rfid)
+    return {"message": "Authenticating and starting transaction"}
+
+
+@app.get("/fcs/connector/{connector_id}/send_charging_profile")
 async def send_charging_profile(connector_id: int = 1, limit: int = 100) -> Response:
     """Send a charging profile with a limit in W.
 
@@ -149,14 +166,16 @@ async def send_charging_profile(connector_id: int = 1, limit: int = 100) -> Resp
         limit: Limit of the charging profile in W
     """
     await FCS.on_set_charging_profile(
-        connector_id,
-        {"charging_schedule": {"charging_schedule_period": [{"limit": limit}]}},
+        connector_id=connector_id,
+        cs_charging_profiles={
+            "charging_schedule": {"charging_schedule_period": [{"limit": limit}]}
+        },
     )
     await FCS.after_set_charging_profile(connector_id)
     return {"message": "Sending charging profile"}
 
 
-@app.post("/data_transfer")
+@app.post("/fcs/data_transfer")
 async def send_data_transfer(payload: dict[str, object] = {}) -> Response:
     """Send a DataTransfer payload to the CSMS.
 
@@ -170,7 +189,7 @@ async def send_data_transfer(payload: dict[str, object] = {}) -> Response:
     return {"message": "Sending data transfer payload"}
 
 
-@app.get("/stop")
+@app.get("/fcs/connector/{connector_id}/stop")
 async def stop(connector_id: int = 1, reason: str | None = None) -> Response:
     """Stop transaction at a connector.
 
@@ -182,11 +201,11 @@ async def stop(connector_id: int = 1, reason: str | None = None) -> Response:
         connector_id: The ID of the connector
         send_reason: Whether to send the reason
     """
-    await FCS.send_stop_transaction(connector_id, reason)
+    await FCS.send_stop_transaction(connector_id=connector_id, reason=reason)
     return {"message": "Stopping transaction"}
 
 
-@app.get("/unplug")
+@app.get("/fcs/connector/{connector_id}/unplug")
 async def unplug(connector_id: int = 1, stop_tx: bool = True) -> Response:
     """Unplug a connector.
 
@@ -201,14 +220,14 @@ async def unplug(connector_id: int = 1, stop_tx: bool = True) -> Response:
     return {"message": "Unplugging"}
 
 
-@app.get("/disc")
+@app.get("/fcs/disc")
 async def disconnect() -> Response:
     """Disconnect the FCS from the CSMS."""
     await FCS.disconnect()
     return {"message": "Disconnecting"}
 
 
-@app.get("/shutdown")
+@app.get("/fcs/shutdown")
 async def shutdown() -> Response:
     """Shutdown the FCS instance."""
     os.kill(os.getpid(), signal.SIGTERM)
