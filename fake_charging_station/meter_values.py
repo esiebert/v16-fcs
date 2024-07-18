@@ -1,7 +1,6 @@
 from datetime import datetime, timezone
 from typing import Any
 
-
 METER_VALUES_SAMPLED_DATA = [
     "Power.Offered",
     "Power.Active.Import",

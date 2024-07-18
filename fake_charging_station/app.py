@@ -5,6 +5,7 @@ import signal
 from contextlib import asynccontextmanager
 
 from fastapi import Body, Depends, FastAPI, Response
+from ocpp.v16.enums import ChargingProfileStatus
 from websockets.headers import build_authorization_basic
 
 from .main import get_fcs, stop_fcs
@@ -165,14 +166,18 @@ async def send_charging_profile(connector_id: int = 1, limit: int = 100) -> Resp
         connector_id: The ID of the connector
         limit: Limit of the charging profile in W
     """
-    await FCS.on_set_charging_profile(
+    response = await FCS.on_set_charging_profile(
         connector_id=connector_id,
         cs_charging_profiles={
             "charging_schedule": {"charging_schedule_period": [{"limit": limit}]}
         },
     )
+
+    if response.status == ChargingProfileStatus.rejected:
+        return {"message": "Unable to set charging profile to the requested connector"}
+
     await FCS.after_set_charging_profile(connector_id)
-    return {"message": "Sending charging profile"}
+    return {"message": "Charging profile sent"}
 
 
 @app.post("/fcs/data_transfer")

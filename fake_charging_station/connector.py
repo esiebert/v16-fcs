@@ -47,6 +47,9 @@ class Connector:
         else:
             self.status = ChargePointStatus.available
 
+    def ready_to_charge(self) -> bool:
+        return self.status == ChargePointStatus.preparing and self.plugged_in
+
     def consume_energy(self) -> None:
         """Simulate consumption of energy.
 

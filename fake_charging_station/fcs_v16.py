@@ -1,5 +1,6 @@
 import argparse
 import asyncio
+import json
 import logging
 import os
 import random
@@ -8,7 +9,7 @@ from concurrent.futures._base import CancelledError
 from datetime import datetime, timezone
 from enum import Enum
 from io import TextIOWrapper
-import json
+
 from ocpp.routing import after, on
 from ocpp.v16 import ChargePoint, call, call_result
 from ocpp.v16.enums import (
@@ -48,7 +49,8 @@ class FakeChargingStation(ChargePoint):
 
         self.id = id
         self.connectors = {
-            i: Connector(connector_id=i) for i in range(number_of_connectors + 1)
+            (i + 1): Connector(connector_id=(i + 1))
+            for i in range(number_of_connectors)
         }
         self.tasks = []
         self.vendor = vendor
@@ -56,7 +58,7 @@ class FakeChargingStation(ChargePoint):
         self.firmware_version = "v1337"
         self.serial_number = "12345678"
         self.configuration = {
-            "HeartbeatInterval": "60",
+            "HeartbeatInterval": "600",
             "MeterValuesSampledData": METER_VALUES_SAMPLED_DATA,
             "MeterValueSampleInterval": "10",
             "NumberOfConnectors": str(number_of_connectors),
@@ -94,7 +96,8 @@ class FakeChargingStation(ChargePoint):
             recv_task.cancel()
             return False
 
-        await self.send_status_notification(1)
+        # Send status notification for all connectors
+        await self.send_status_notification(0)
 
         # Start heartbeat and meter values loops
         heartbeat_loop = asyncio.create_task(self.send_heartbeat())
@@ -232,13 +235,24 @@ class FakeChargingStation(ChargePoint):
 
     async def send_status_notification(self, connector_id: int = 1):
         """Notify status of a connector."""
-        request = call.StatusNotificationPayload(
-            connector_id=connector_id,
-            error_code=self.connectors[connector_id].error_code,
-            status=self.connectors[connector_id].status,
-        )
-        LOGGER.debug("Sending StatusNotification")
-        return await self.call(request)
+
+        async def _notify_status(connector):
+            request = call.StatusNotificationPayload(
+                connector_id=connector.id,
+                error_code=connector.error_code,
+                status=connector.status,
+            )
+            LOGGER.debug(f"Sending StatusNotification for {connector.id=}")
+            return await self.call(request)
+
+        if connector_id == 0:
+            LOGGER.debug(f"Sending StatusNotification for all connectors")
+            return [
+                await _notify_status(connector)
+                for connector in self.connectors.values()
+            ]
+
+        return await _notify_status(self.connectors[connector_id])
 
     async def unplug(self, connector_id: int = 1, stop_tx: bool = True) -> None:
         """Unplug a connector, and send status notification."""
@@ -367,12 +381,21 @@ class FakeChargingStation(ChargePoint):
         self, connector_id: int, cs_charging_profiles: dict[str, object]
     ):
         """Set limit of the first charging schedule to connector's power offered."""
-        power_offered = float(
+        connector = self.connectors[connector_id]
+        if not connector.ready_to_charge():
+            LOGGER.warning(
+                f"Unable to set charging profile to {connector_id=}:"
+                " not ready to charge"
+            )
+            return call_result.SetChargingProfilePayload(
+                status=ChargingProfileStatus.rejected
+            )
+
+        connector.power_offered = float(
             cs_charging_profiles["charging_schedule"]["charging_schedule_period"][0][
                 "limit"
             ]
         )
-        self.connectors[connector_id].power_offered = power_offered
 
         return call_result.SetChargingProfilePayload(
             status=ChargingProfileStatus.accepted
