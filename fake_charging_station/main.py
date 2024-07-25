@@ -1,14 +1,13 @@
 import asyncio
-import logging
 from functools import cache
 
 from websockets.headers import build_authorization_basic
 
+from .custom_logger import get_logger
 from .fcs_v16 import FakeChargingStation
 from .settings import Settings
 
-LOGGER = logging.getLogger("main")
-logging.basicConfig(format="%(levelname)s:%(message)s", level=logging.INFO)
+LOGGER = get_logger("main")
 
 
 @cache

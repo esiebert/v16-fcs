@@ -1,7 +1,6 @@
 import argparse
 import asyncio
 import json
-import logging
 import os
 import random
 from collections import deque
@@ -29,14 +28,10 @@ from websockets.client import connect as connect_ws
 from websockets.exceptions import InvalidStatusCode
 
 from .connector import Connector
+from .custom_logger import get_logger
 from .meter_values import METER_VALUES_SAMPLED_DATA
 
-LOGGER = logging.getLogger("fcs")
-logging.basicConfig(
-    format="%(asctime)s [%(levelname)s:%(name)s] %(message)s",
-    level=logging.INFO,
-    datefmt="%H:%M:%S",
-)
+LOGGER = get_logger("fcs")
 
 
 class FakeChargingStation(ChargePoint):
@@ -81,7 +76,7 @@ class FakeChargingStation(ChargePoint):
                 ssl=None,
                 extra_headers=extra_headers,
             )
-        except InvalidStatusCode as e:
+        except Exception as e:
             LOGGER.error(
                 "Server rejected WS connection. Is this CS configured in the CSMS?"
             )

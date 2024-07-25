@@ -1,16 +1,10 @@
-import logging
-
 from ocpp.v16.call import MeterValuesPayload
 from ocpp.v16.enums import AvailabilityType, ChargePointErrorCode, ChargePointStatus
 
+from .custom_logger import get_logger
 from .meter_values import generate_meter_values
 
-LOGGER = logging.getLogger("connector")
-logging.basicConfig(
-    format="%(asctime)s [%(levelname)s:%(name)s] %(message)s",
-    level=logging.INFO,
-    datefmt="%H:%M:%S",
-)
+LOGGER = get_logger("connector")
 
 
 class Connector:

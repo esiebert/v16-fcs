@@ -1,5 +1,4 @@
 import asyncio
-import logging
 import os
 import signal
 from contextlib import asynccontextmanager
@@ -8,17 +7,13 @@ from fastapi import Body, Depends, FastAPI, Response
 from ocpp.v16.enums import ChargingProfileStatus
 from websockets.headers import build_authorization_basic
 
+from .custom_logger import get_logger
 from .main import get_fcs, stop_fcs
 from .session import SessionPlanRequest, execute_session_plan
 from .settings import Settings, get_settings
 
 FCS = None
-LOGGER = logging.getLogger("app")
-logging.basicConfig(
-    format="%(asctime)s [%(levelname)s:%(name)s] %(message)s",
-    level=logging.INFO,
-    datefmt="%H:%M:%S",
-)
+LOGGER = get_logger("app")
 
 
 @asynccontextmanager

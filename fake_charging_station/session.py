@@ -1,17 +1,12 @@
 import asyncio
-import logging
 
 from pydantic import BaseModel
 
+from .custom_logger import get_logger
 from .main import get_fcs, stop_fcs
 from .settings import Settings
 
-LOGGER = logging.getLogger("Session Planner")
-logging.basicConfig(
-    format="%(asctime)s [%(levelname)s:%(name)s] %(message)s",
-    level=logging.INFO,
-    datefmt="%H:%M:%S",
-)
+LOGGER = get_logger("Session Planner")
 
 
 class SessionPlanRequest(BaseModel):
