@@ -33,7 +33,7 @@ QUICK_START_CONNECTOR=1
 ```
 Additionally, if you also want it to start charging immediatelly, set:
 ```
-QUICK_START_CHARGING_LIMIT=500
+QUICK_START_CHARGING=500
 ```
 There's a 3 second interval in between quick start commands.
 

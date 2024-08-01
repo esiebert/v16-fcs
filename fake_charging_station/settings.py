@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     quick_start: bool | None = False
     quick_start_rfid: str | None = "12341234"
     quick_start_connector: int | None = 1
-    quick_start_charging_limit: int | None = None
+    quick_start_charging: int | None = None
     on_demand: bool | None = True
 
     class Config:

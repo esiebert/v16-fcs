@@ -31,6 +31,7 @@ async def lifespan(app: FastAPI) -> Response:
                 connectors=settings.connectors,
                 password=settings.password,
                 ws_url=settings.ws_url,
+                tx_start_charge=settings.quick_start_charging,
             )
             if FCS:
                 if settings.quick_start:
@@ -38,14 +39,14 @@ async def lifespan(app: FastAPI) -> Response:
                     await FCS.plug_in(
                         settings.quick_start_rfid, settings.quick_start_connector
                     )
-                    if settings.quick_start_charging_limit:
+                    if settings.quick_start_charging:
                         await asyncio.sleep(3)
                         await FCS.on_set_charging_profile(
                             settings.quick_start_connector,
                             {
                                 "charging_schedule": {
                                     "charging_schedule_period": [
-                                        {"limit": settings.quick_start_charging_limit}
+                                        {"limit": settings.quick_start_charging}
                                     ]
                                 }
                             },
