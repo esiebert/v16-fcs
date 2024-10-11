@@ -8,11 +8,10 @@ from ocpp.v16.enums import ChargingProfileStatus
 from websockets.headers import build_authorization_basic
 
 from .custom_logger import get_logger
-from .main import get_fcs, stop_fcs
+from .fcs_v16.fcs_v16 import get_fcs, quick_start_fcs, stop_fcs
 from .session import SessionPlanRequest, execute_session_plan
 from .settings import Settings, get_settings
 
-FCS = None
 LOGGER = get_logger("app")
 
 
@@ -21,39 +20,9 @@ async def lifespan(app: FastAPI) -> Response:
     """Lifespan of the app."""
     try:
         # Start a FCS and connect to WS
-        global FCS
         settings = get_settings()
         if not settings.on_demand:
-            FCS = await get_fcs(
-                cs_id=settings.cs_id,
-                vendor=settings.vendor,
-                model=settings.model,
-                connectors=settings.connectors,
-                password=settings.password,
-                ws_url=settings.ws_url,
-                tx_start_charge=settings.quick_start_charging,
-            )
-            if FCS:
-                if settings.quick_start:
-                    await asyncio.sleep(3)
-                    await FCS.plug_in(
-                        settings.quick_start_rfid, settings.quick_start_connector
-                    )
-                    if settings.quick_start_charging:
-                        await asyncio.sleep(3)
-                        await FCS.on_set_charging_profile(
-                            settings.quick_start_connector,
-                            {
-                                "charging_schedule": {
-                                    "charging_schedule_period": [
-                                        {"limit": settings.quick_start_charging}
-                                    ]
-                                }
-                            },
-                        )
-                        await FCS.after_set_charging_profile(
-                            settings.quick_start_connector
-                        )
+            app.FCS = await get_fcs(settings=settings)
         else:
             LOGGER.info(
                 "Starting server without an FCS instance."
@@ -63,8 +32,9 @@ async def lifespan(app: FastAPI) -> Response:
     except asyncio.exceptions.CancelledError:
         pass
     finally:
-        if FCS:
-            await stop_fcs(fcs=FCS)
+        # Stop FCS gracefully
+        if app.FCS:
+            await stop_fcs(fcs=app.FCS)
 
 
 app = FastAPI(
@@ -109,7 +79,7 @@ async def session_plan(
 @app.get("/fcs/connector/{connector_id}/status")
 async def status(connector_id: int = 1) -> Response:
     """Send status notification to CSMS."""
-    response = await FCS.send_status_notification(connector_id=connector_id)
+    response = await app.FCS.send_status_notification(connector_id=connector_id)
     return {"message": "Sending status"}
 
 
@@ -126,7 +96,7 @@ async def plugin(connector_id: int = 1, rfid: str | None = None) -> Response:
         rfid: RFID used to authenticate against the CSMS.
             If given, tries to authenticate and starts a charging session
     """
-    await FCS.plug_in(rfid=rfid, connector_id=connector_id)
+    await app.FCS.plug_in(rfid=rfid, connector_id=connector_id)
     return {"message": "Plugging in"}
 
 
@@ -142,7 +112,7 @@ async def start(connector_id: int = 1, rfid: str = "12341234") -> Response:
         connector_id: The ID of the connector
         rfid: RFID used to authenticate against the CSMS.
     """
-    await FCS.send_auth_start(connector_id=connector_id, rfid=rfid)
+    await app.FCS.send_auth_start(connector_id=connector_id, rfid=rfid)
     return {"message": "Authenticating and starting transaction"}
 
 
@@ -162,7 +132,7 @@ async def send_charging_profile(connector_id: int = 1, limit: int = 100) -> Resp
         connector_id: The ID of the connector
         limit: Limit of the charging profile in W
     """
-    response = await FCS.on_set_charging_profile(
+    response = await app.FCS.on_set_charging_profile(
         connector_id=connector_id,
         cs_charging_profiles={
             "charging_schedule": {"charging_schedule_period": [{"limit": limit}]}
@@ -172,7 +142,7 @@ async def send_charging_profile(connector_id: int = 1, limit: int = 100) -> Resp
     if response.status == ChargingProfileStatus.rejected:
         return {"message": "Unable to set charging profile to the requested connector"}
 
-    await FCS.after_set_charging_profile(connector_id)
+    await app.FCS.after_set_charging_profile(connector_id)
     return {"message": "Charging profile sent"}
 
 
@@ -186,7 +156,7 @@ async def send_data_transfer(payload: dict[str, object] = {}) -> Response:
         connector_id: The ID of the connector
         limit: Limit of the charging profile in W
     """
-    await FCS.send_data_transfer(payload)
+    await app.FCS.send_data_transfer(payload)
     return {"message": "Sending data transfer payload"}
 
 
@@ -202,7 +172,7 @@ async def stop(connector_id: int = 1, reason: str | None = None) -> Response:
         connector_id: The ID of the connector
         send_reason: Whether to send the reason
     """
-    await FCS.send_stop_transaction(connector_id=connector_id, reason=reason)
+    await app.FCS.send_stop_transaction(connector_id=connector_id, reason=reason)
     return {"message": "Stopping transaction"}
 
 
@@ -217,14 +187,14 @@ async def unplug(connector_id: int = 1, stop_tx: bool = True) -> Response:
     Args:
         connector_id: The ID of the connector
     """
-    await FCS.unplug(connector_id, stop_tx)
+    await app.FCS.unplug(connector_id, stop_tx)
     return {"message": "Unplugging"}
 
 
 @app.get("/fcs/disc")
 async def disconnect() -> Response:
     """Disconnect the FCS from the CSMS."""
-    await FCS.disconnect()
+    await app.FCS.disconnect()
     return {"message": "Disconnecting"}
 
 

@@ -3,7 +3,7 @@ import asyncio
 from pydantic import BaseModel
 
 from .custom_logger import get_logger
-from .main import get_fcs, stop_fcs
+from .fcs_v16.fcs_v16 import get_fcs, stop_fcs
 from .settings import Settings
 
 LOGGER = get_logger("Session Planner")

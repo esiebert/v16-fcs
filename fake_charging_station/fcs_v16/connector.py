@@ -1,7 +1,8 @@
 from ocpp.v16.call import MeterValuesPayload
 from ocpp.v16.enums import AvailabilityType, ChargePointErrorCode, ChargePointStatus
 
-from .custom_logger import get_logger
+from fake_charging_station.custom_logger import get_logger
+
 from .meter_values import generate_meter_values
 
 LOGGER = get_logger("connector")

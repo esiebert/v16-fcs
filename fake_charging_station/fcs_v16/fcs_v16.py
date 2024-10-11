@@ -7,6 +7,7 @@ from collections import deque
 from concurrent.futures._base import CancelledError
 from datetime import datetime, timezone
 from enum import Enum
+from functools import cache
 from io import TextIOWrapper
 
 from ocpp.routing import after, on
@@ -26,9 +27,12 @@ from ocpp.v16.enums import (
 )
 from websockets.client import connect as connect_ws
 from websockets.exceptions import InvalidStatusCode
+from websockets.headers import build_authorization_basic
+
+from fake_charging_station.custom_logger import get_logger
+from fake_charging_station.settings import Settings
 
 from .connector import Connector
-from .custom_logger import get_logger
 from .meter_values import METER_VALUES_SAMPLED_DATA
 
 LOGGER = get_logger("fcs")
@@ -421,3 +425,57 @@ class FakeChargingStation(ChargePoint):
         )
         LOGGER.debug("Sending DataTransfer")
         return await self.call(request)
+
+
+@cache
+async def get_fcs(settings: Settings) -> FakeChargingStation:
+    fcs = FakeChargingStation(
+        id=settings.cs_id,
+        vendor=settings.vendor,
+        model=settings.model,
+        number_of_connectors=settings.connectors,
+        tx_start_charge=settings.quick_start_charging,
+    )
+
+    basic_auth = {
+        "Authorization": build_authorization_basic(settings.cs_id, settings.password)
+    }
+
+    try:
+        await fcs.boot_up(settings.ws_url, basic_auth)
+    except Exception as e:
+        LOGGER.exception(str(e))
+
+    await quick_start_fcs(fcs, settings)
+
+    return fcs
+
+
+async def stop_fcs(fcs: FakeChargingStation) -> None:
+    LOGGER.info("Stopping services gracefully")
+    for connector_id in fcs.connectors.keys():
+        await fcs.unplug(connector_id)
+    await asyncio.sleep(5)
+    if fcs.connected:
+        await fcs.disconnect()
+
+
+async def quick_start_fcs(fcs: FakeChargingStation, settings: Settings) -> None:
+    if not settings.quick_start:
+        return
+
+    await asyncio.sleep(3)
+    await fcs.plug_in(settings.quick_start_rfid, settings.quick_start_connector)
+    if settings.quick_start_charging:
+        await asyncio.sleep(3)
+        await fcs.on_set_charging_profile(
+            settings.quick_start_connector,
+            {
+                "charging_schedule": {
+                    "charging_schedule_period": [
+                        {"limit": settings.quick_start_charging}
+                    ]
+                }
+            },
+        )
+        await fcs.after_set_charging_profile(settings.quick_start_connector)
