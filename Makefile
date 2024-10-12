@@ -15,5 +15,8 @@ run: build rm-container
 	docker run --env-file .env --name fcs -p 8081:8081 --add-host=host.docker.internal:host-gateway fcs
 
 fmt:
-	isort .
-	black .
+	poetry run isort .
+	poetry run black .
+
+lint:
+	poetry run mypy fake_charging_station
