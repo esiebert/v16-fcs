@@ -12,7 +12,6 @@ from websockets.headers import build_authorization_basic
 
 from .custom_logger import get_logger
 from .fcs_v16.fcs_v16 import get_fcs, quick_start_fcs, stop_fcs
-from .session import SessionPlanRequest, execute_session_plan
 from .settings import Settings, get_settings
 
 LOGGER = get_logger("app")
@@ -53,44 +52,6 @@ app = FastAPI(
     lifespan=lifespan,
     description="API for controlling a fake charging station.",
 )
-
-
-session_plan_example = Body(
-    ...,
-    example=SessionPlanRequest(
-        cs_id="fake_v16_station",
-        password="9TaK9aKGaDaaaNaN",
-        ws_url="ws://csms.url.com/cpo_url",
-        vendor="Foo",
-        model="Bar-42",
-        steps=[
-            ["wait", 2],
-            ["plugin", 1, "12341234"],
-            ["wait", 2],
-            ["charge", 1, 500],
-            ["wait", 30],
-            ["stop", 1],
-            ["wait", 30],
-            ["unplug", 1],
-            ["disconnect"],
-        ],
-    ).dict(),
-)
-
-
-@app.post("/fcs/session_plan")
-async def session_plan(
-    session_plan_request: SessionPlanRequest = session_plan_example,
-) -> dict[str, str]:
-    """Start a new FCS instance and follow a session plan.
-
-    \f Truncate output for OpenAPI doc
-
-    Args:
-        session_plan_request: Plan for the charging session to be followed
-    """
-    await execute_session_plan(session_plan_request=session_plan_request)
-    return {"message": "Session plan executed"}
 
 
 @app.get("/fcs/connector/{connector_id}/status")
