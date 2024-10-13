@@ -23,6 +23,7 @@ from websockets.headers import build_authorization_basic
 
 from fake_charging_station.custom_logger import get_logger
 from fake_charging_station.settings import Settings
+
 from .connector import Connector
 from .meter_values import METER_VALUES_SAMPLED_DATA
 
@@ -31,6 +32,14 @@ LOGGER = get_logger("fcs")
 
 class FakeChargingStation(ChargePoint):
     """Implementation of a fake OCPP 1.6 charging station."""
+
+    class RejectedRequestError(Exception):
+        """Custom error for when a request was rejected by the CS/CSMS."""
+
+        def __init__(self, source: str, message: str) -> None:
+            """Construct the exception."""
+            self.source = source
+            self.message = f"Request rejected by the {source}: {message}"
 
     def __init__(
         self,
@@ -77,8 +86,7 @@ class FakeChargingStation(ChargePoint):
                 extra_headers=extra_headers,
             )
         except Exception as e:
-            LOGGER.error("Server rejected WS connection. Is this CS configured in the CSMS?")
-            return False
+            raise Exception("Server rejected WS connection. Is this CS configured in the CSMS?")
 
         # Start receiver task
         recv_task = create_task(self.start())
@@ -168,11 +176,15 @@ class FakeChargingStation(ChargePoint):
     async def send_auth_start(self, connector_id: int, rfid: str) -> None:
         """Authorize against CSMS and start transaction if RFID is present."""
         if not self.connectors[connector_id].plugged_in:
-            LOGGER.error("Unable to authorize when nothing is plugged in")
+            raise FakeChargingStation.RejectedRequestError(
+                source="CS", message="Unable to authorize when nothing is plugged in"
+            )
         if await self.send_authorize(connector_id=connector_id, rfid=rfid):
             await self.send_start_transaction(connector_id=connector_id)
         else:
-            LOGGER.error(f"Could not authorize RFID: {rfid}")
+            raise FakeChargingStation.RejectedRequestError(
+                source="CSMS", message=f"Could not authorize RFID: {rfid}"
+            )
 
     async def send_authorize(self, connector_id: int, rfid: str) -> bool:
         """Send auth request and status notification."""
@@ -390,7 +402,7 @@ class FakeChargingStation(ChargePoint):
         connector = self.connectors[connector_id]
         if not connector.ready_to_charge():
             LOGGER.warning(
-                f"Unable to set charging profile to {connector_id=}:" " not ready to charge"
+                f"Unable to set charging profile to {connector_id=}: not ready to charge"
             )
             return call_result.SetChargingProfilePayload(status=ChargingProfileStatus.rejected)
 
@@ -427,10 +439,7 @@ async def get_fcs(settings: Settings) -> FakeChargingStation:
 
     basic_auth = {"Authorization": build_authorization_basic(settings.cs_id, settings.password)}
 
-    try:
-        await fcs.boot_up(ws_url=settings.ws_url, extra_headers=basic_auth)
-    except Exception as e:
-        LOGGER.exception(str(e))
+    await fcs.boot_up(ws_url=settings.ws_url, extra_headers=basic_auth)
 
     await quick_start_fcs(fcs=fcs, settings=settings)
 

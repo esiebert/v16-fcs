@@ -6,12 +6,13 @@ import signal
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
-from fastapi import Body, Depends, FastAPI, Response
+from fastapi import Body, Depends, FastAPI, HTTPException, Request, Response, status
+from fastapi.responses import JSONResponse
 from ocpp.v16.enums import ChargingProfileStatus
 from websockets.headers import build_authorization_basic
 
 from .custom_logger import get_logger
-from .fcs_v16.fcs_v16 import get_fcs, quick_start_fcs, stop_fcs
+from .fcs_v16.fcs_v16 import FakeChargingStation, get_fcs, quick_start_fcs, stop_fcs
 from .settings import Settings, get_settings
 
 LOGGER = get_logger("app")
@@ -54,8 +55,16 @@ app = FastAPI(
 )
 
 
-@app.get("/fcs/connector/{connector_id}/status")
-async def status(connector_id: int = 1) -> dict[str, str]:
+@app.exception_handler(FakeChargingStation.RejectedRequestError)
+async def rejected_request_exception_handler(
+    request: Request, exc: FakeChargingStation.RejectedRequestError
+) -> JSONResponse:
+    """Return a 409 conflict HTTP response when a request was rejected."""
+    return JSONResponse(status_code=status.HTTP_409_CONFLICT, content={"detail": exc.message})
+
+
+@app.get("/fcs/connector/{connector_id}/status", status_code=status.HTTP_200_OK)
+async def send_status(connector_id: int = 1) -> dict[str, str]:
     """Send status notification to CSMS.
 
     \f Truncate output for OpenAPI doc
@@ -67,7 +76,7 @@ async def status(connector_id: int = 1) -> dict[str, str]:
     return {"message": "Sending status"}
 
 
-@app.get("/fcs/connector/{connector_id}/plugin")
+@app.get("/fcs/connector/{connector_id}/plugin", status_code=status.HTTP_200_OK)
 async def plugin(connector_id: int = 1, rfid: str | None = None) -> dict[str, str]:
     """Plug in a connector, and authenticate if RFID is given.
 
@@ -84,7 +93,7 @@ async def plugin(connector_id: int = 1, rfid: str | None = None) -> dict[str, st
     return {"message": "Plugging in"}
 
 
-@app.get("/fcs/connector/{connector_id}/start")
+@app.get("/fcs/connector/{connector_id}/start", status_code=status.HTTP_200_OK)
 async def start(connector_id: int = 1, rfid: str = "12341234") -> dict[str, str]:
     """Authenticates and starts transaction at a connector.
 
@@ -100,7 +109,7 @@ async def start(connector_id: int = 1, rfid: str = "12341234") -> dict[str, str]
     return {"message": "Authenticating and starting transaction"}
 
 
-@app.get("/fcs/connector/{connector_id}/send_charging_profile")
+@app.get("/fcs/connector/{connector_id}/send_charging_profile", status_code=status.HTTP_200_OK)
 async def send_charging_profile(connector_id: int = 1, limit: int = 100) -> dict[str, str]:
     """Send a charging profile with a limit in W.
 
@@ -124,13 +133,16 @@ async def send_charging_profile(connector_id: int = 1, limit: int = 100) -> dict
     )
 
     if response.status == ChargingProfileStatus.rejected:
-        return {"message": "Unable to set charging profile to the requested connector"}
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Unable to set charging profile: connector not ready to charge",
+        )
 
     await app.FCS.after_set_charging_profile(connector_id=connector_id)  # type: ignore[attr-defined]
     return {"message": "Charging profile sent"}
 
 
-@app.post("/fcs/data_transfer")
+@app.post("/fcs/data_transfer", status_code=status.HTTP_200_OK)
 async def send_data_transfer(payload: dict[str, object] = {}) -> dict[str, str]:
     """Send a DataTransfer payload to the CSMS.
 
@@ -143,7 +155,7 @@ async def send_data_transfer(payload: dict[str, object] = {}) -> dict[str, str]:
     return {"message": "Sending data transfer payload"}
 
 
-@app.get("/fcs/connector/{connector_id}/stop")
+@app.get("/fcs/connector/{connector_id}/stop", status_code=status.HTTP_200_OK)
 async def stop(connector_id: int = 1, reason: str | None = None) -> dict[str, str]:
     """Stop transaction at a connector.
 
@@ -159,7 +171,7 @@ async def stop(connector_id: int = 1, reason: str | None = None) -> dict[str, st
     return {"message": "Stopping transaction"}
 
 
-@app.get("/fcs/connector/{connector_id}/unplug")
+@app.get("/fcs/connector/{connector_id}/unplug", status_code=status.HTTP_200_OK)
 async def unplug(connector_id: int = 1, stop_tx: bool = True) -> dict[str, str]:
     """Unplug a connector.
 
@@ -176,14 +188,14 @@ async def unplug(connector_id: int = 1, stop_tx: bool = True) -> dict[str, str]:
     return {"message": "Unplugging"}
 
 
-@app.get("/fcs/disc")
+@app.get("/fcs/disc", status_code=status.HTTP_200_OK)
 async def disconnect() -> dict[str, str]:
     """Disconnect the FCS from the CSMS."""
     await app.FCS.disconnect()  # type: ignore[attr-defined]
     return {"message": "Disconnecting"}
 
 
-@app.get("/fcs/shutdown")
+@app.get("/fcs/shutdown", status_code=status.HTTP_200_OK)
 async def shutdown() -> dict[str, str]:
     """Shutdown the FCS instance."""
     os.kill(os.getpid(), signal.SIGTERM)
