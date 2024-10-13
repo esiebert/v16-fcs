@@ -1,13 +1,8 @@
-import argparse
-import asyncio
+"""Implementation of the OCPP v1.6 fake charging station."""
+
 import json
-import os
-import random
-from collections import deque
-from concurrent.futures._base import CancelledError
+from asyncio import Task, create_task, sleep
 from datetime import datetime, timezone
-from enum import Enum
-from io import TextIOWrapper
 from typing import cast
 
 from ocpp.routing import after, on
@@ -16,22 +11,18 @@ from ocpp.v16.enums import (
     Action,
     AuthorizationStatus,
     AvailabilityType,
-    ChargePointErrorCode,
     ChargePointStatus,
     ChargingProfileStatus,
     ConfigurationStatus,
     Reason,
     RegistrationStatus,
     RemoteStartStopStatus,
-    TriggerMessageStatus,
 )
 from websockets.client import connect as connect_ws
-from websockets.exceptions import InvalidStatusCode
 from websockets.headers import build_authorization_basic
 
 from fake_charging_station.custom_logger import get_logger
 from fake_charging_station.settings import Settings
-
 from .connector import Connector
 from .meter_values import METER_VALUES_SAMPLED_DATA
 
@@ -55,7 +46,7 @@ class FakeChargingStation(ChargePoint):
         self.connectors = {
             (i + 1): Connector(connector_id=(i + 1)) for i in range(number_of_connectors)
         }
-        self.tasks: list[asyncio.Task] = []
+        self.tasks: list[Task] = []
         self.vendor = vendor
         self.model = model
         self.firmware_version = "v1337"
@@ -90,7 +81,7 @@ class FakeChargingStation(ChargePoint):
             return False
 
         # Start receiver task
-        recv_task = asyncio.create_task(self.start())
+        recv_task = create_task(self.start())
 
         # Send boot notification followed by status notification
         if not await self.send_boot_notification():
@@ -102,8 +93,8 @@ class FakeChargingStation(ChargePoint):
         await self.send_status_notification(connector_id=0)
 
         # Start heartbeat and meter values loops
-        heartbeat_loop = asyncio.create_task(self.send_heartbeat())
-        meter_values_loop = asyncio.create_task(self.meter_value_loop())
+        heartbeat_loop = create_task(self.send_heartbeat())
+        meter_values_loop = create_task(self.meter_value_loop())
         self.tasks = [recv_task, heartbeat_loop, meter_values_loop]
 
         self.connected = True
@@ -113,11 +104,11 @@ class FakeChargingStation(ChargePoint):
     async def send_heartbeat(self) -> None:
         """Make the heart beat."""
         LOGGER.info("Starting Heartbeat loop")
-        await asyncio.sleep(5)
+        await sleep(5)
         while True:
             request = call.HeartbeatPayload()
             await self.call(request)
-            await asyncio.sleep(
+            await sleep(
                 int(self.configuration["HeartbeatInterval"])  # type: ignore[call-overload]
             )
 
@@ -134,7 +125,7 @@ class FakeChargingStation(ChargePoint):
                     connector.consume_energy()
                     request = connector.get_meter_values()
                     await self.call(request)
-            await asyncio.sleep(
+            await sleep(
                 int(self.configuration["MeterValueSampleInterval"])  # type: ignore[call-overload]
             )
 
@@ -236,7 +227,7 @@ class FakeChargingStation(ChargePoint):
             connector.power_offered = self.tx_start_charge
             connector.update_status()
 
-        await asyncio.sleep(5)
+        await sleep(5)
         await self.send_status_notification(connector_id=connector_id)
 
     @on(Action.RemoteStartTransaction)
@@ -341,7 +332,7 @@ class FakeChargingStation(ChargePoint):
                 connector_id=connector_id, reason=Reason.ev_disconnected
             )
             await self.send_status_notification(connector_id=connector_id)
-            await asyncio.sleep(5)
+            await sleep(5)
 
         LOGGER.info(f"Unplugging {connector_id=}")
         self.connectors[connector_id].reset(postpone_stop_tx=not stop_tx)
@@ -452,7 +443,7 @@ async def stop_fcs(fcs: FakeChargingStation) -> None:
     for connector_id in fcs.connectors.keys():
         await fcs.unplug(connector_id=connector_id)
 
-    await asyncio.sleep(5)
+    await sleep(5)
 
     if fcs.connected:
         await fcs.disconnect()
@@ -467,11 +458,11 @@ async def quick_start_fcs(fcs: FakeChargingStation, settings: Settings) -> None:
     ):
         return
 
-    await asyncio.sleep(3)
+    await sleep(3)
     await fcs.plug_in(settings.quick_start_rfid, settings.quick_start_connector)
 
     if settings.quick_start_charging:
-        await asyncio.sleep(3)
+        await sleep(3)
         await fcs.on_set_charging_profile(
             connector_id=settings.quick_start_connector,
             cs_charging_profiles={
