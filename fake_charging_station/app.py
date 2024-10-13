@@ -6,14 +6,13 @@ import signal
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
-from fastapi import Body, Depends, FastAPI, HTTPException, Request, Response, status
+from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 from ocpp.v16.enums import ChargingProfileStatus
-from websockets.headers import build_authorization_basic
 
 from .custom_logger import get_logger
-from .fcs_v16.fcs_v16 import FakeChargingStation, get_fcs, quick_start_fcs, stop_fcs
-from .settings import Settings, get_settings
+from .fcs_v16.fcs_v16 import FakeChargingStation, get_fcs, stop_fcs
+from .settings import get_settings
 
 LOGGER = get_logger("app")
 
@@ -72,7 +71,7 @@ async def send_status(connector_id: int = 1) -> dict[str, str]:
     Args:
         connector_id: The ID of the connector
     """
-    response = await app.FCS.send_status_notification(connector_id=connector_id)  # type: ignore[attr-defined]
+    await app.FCS.send_status_notification(connector_id=connector_id)  # type: ignore[attr-defined]
     return {"message": "Sending status"}
 
 

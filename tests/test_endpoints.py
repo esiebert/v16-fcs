@@ -1,5 +1,3 @@
-import json
-
 from fastapi import status
 from httpx import AsyncClient
 

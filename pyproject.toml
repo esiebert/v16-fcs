@@ -20,6 +20,7 @@ pytest-asyncio = "^0.24.0"
 black = "^24.10.0"
 isort = "^5.13.2"
 mypy = "^1.11.2"
+ruff = "^0.6.9"
 
 [build-system]
 requires = ["poetry-core"]
@@ -32,6 +33,10 @@ target-version = ['py311']
 [tool.isort]
 profile = "black"
 py_version = 311
+
+[tool.ruff]
+line-length = 99
+target-version = "py311"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

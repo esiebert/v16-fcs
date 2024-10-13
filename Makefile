@@ -17,9 +17,11 @@ run: build rm-container
 fmt:
 	poetry run isort .
 	poetry run black .
+	poetry run ruff check --fix
 
 lint:
 	poetry run mypy fake_charging_station
+	poetry run ruff check
 
 test:
 	poetry run pytest

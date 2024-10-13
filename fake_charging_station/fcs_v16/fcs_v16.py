@@ -85,7 +85,7 @@ class FakeChargingStation(ChargePoint):
                 ssl=None,
                 extra_headers=extra_headers,
             )
-        except Exception as e:
+        except Exception:
             raise Exception("Server rejected WS connection. Is this CS configured in the CSMS?")
 
         # Start receiver task
@@ -325,7 +325,7 @@ class FakeChargingStation(ChargePoint):
             return await self.call(request)
 
         if connector_id == 0:
-            LOGGER.debug(f"Sending StatusNotification for all connectors")
+            LOGGER.debug("Sending StatusNotification for all connectors")
             return [
                 await _notify_status(connector=connector) for connector in self.connectors.values()
             ]
