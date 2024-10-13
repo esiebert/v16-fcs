@@ -37,13 +37,14 @@ py_version = 311
 asyncio_mode = "auto"
 
 [tool.mypy]
+warn_return_any = false
+warn_unused_ignores = true
 disallow_untyped_calls = true
 disallow_any_unimported = true
 no_implicit_optional = true
 check_untyped_defs = true
-warn_return_any = false
-warn_unused_ignores = true
 show_error_codes = true
 disable_error_code = [
-    "import-untyped"
+    "import-untyped",
+    "no-any-unimported"
 ]

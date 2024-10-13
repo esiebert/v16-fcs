@@ -35,6 +35,11 @@ jobs:
       shell: bash
       run: |
         poetry install
-    - name: Test with pytest
+
+    - name: Static type check
       run: |
-        poetry run pytest
+        make lint
+
+    - name: Run tests
+      run: |
+        make test

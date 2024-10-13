@@ -20,3 +20,6 @@ fmt:
 
 lint:
 	poetry run mypy fake_charging_station
+
+test:
+	poetry run pytest
