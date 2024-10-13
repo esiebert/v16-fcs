@@ -1,3 +1,5 @@
+"""Module for implementing the session plan feature."""
+
 import asyncio
 
 from pydantic import BaseModel
@@ -10,6 +12,8 @@ LOGGER = get_logger("Session Planner")
 
 
 class SessionPlanRequest(BaseModel):
+    """Model of a session plan request."""
+
     cs_id: str
     vendor: str
     model: str
@@ -40,9 +44,7 @@ async def execute_session_plan(session_plan_request: SessionPlanRequest) -> bool
                 await fcs.plug_in(connector_id=int(step[1]), rfid=step[2])
             case "stop":
                 reason = step[2] if len(step) == 3 else None
-                await fcs.send_stop_transaction(
-                    connector_id=int(step[1]), reason=reason
-                )
+                await fcs.send_stop_transaction(connector_id=int(step[1]), reason=reason)
             case "unplug":
                 stop_tx = step[2] if len(step) == 3 else True
                 await fcs.unplug(connector_id=int(step[1]), stop_tx=stop_tx)
@@ -50,9 +52,7 @@ async def execute_session_plan(session_plan_request: SessionPlanRequest) -> bool
                 await fcs.on_set_charging_profile(
                     connector_id=int(step[1]),
                     cs_charging_profiles={
-                        "charging_schedule": {
-                            "charging_schedule_period": [{"limit": step[2]}]
-                        }
+                        "charging_schedule": {"charging_schedule_period": [{"limit": step[2]}]}
                     },
                 )
                 await fcs.after_set_charging_profile(connector_id=int(step[1]))

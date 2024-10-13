@@ -14,9 +14,22 @@ class Connector:
     def __init__(self, connector_id: int) -> None:
         self.id = connector_id
         self.change_to_unavailable = False
-        self.reset()
 
-    def reset(self, postpone_stop_tx=False) -> None:
+        self.pending_stop_tx: dict[str, object] | None = None
+
+        self.id_tag: str | None = None
+        self.transaction_id: int | None = None
+
+        self.energy_import_register = 0.0
+        self.power_offered = 0.0
+        self.error_code = ChargePointErrorCode.noError
+
+        self.plugged_in = False
+        self.already_stopped = True
+
+        self.status = ChargePointStatus.available
+
+    def reset(self, postpone_stop_tx: bool = False) -> None:
         """Reset connector's attribute to initial state."""
         # Store transaction related fields for later StopTransaction
         self.pending_stop_tx = None
@@ -43,6 +56,7 @@ class Connector:
             self.status = ChargePointStatus.available
 
     def ready_to_charge(self) -> bool:
+        """Verifies if connector is ready to charge."""
         return self.status == ChargePointStatus.preparing and self.plugged_in
 
     def consume_energy(self) -> None:
@@ -52,8 +66,8 @@ class Connector:
         """
         self.energy_import_register += self.power_offered
 
-    def status_changed(self) -> bool:
-        """Change status according to power offered.
+    def update_status(self) -> bool:
+        """Update status according to power offered.
 
         - Power offered == 0 -> Suspended EVSE
         - Power offered != 0 -> Charging
@@ -96,7 +110,12 @@ class Connector:
             transaction_id=self.transaction_id,
         )
 
-    def change_availability(self, availability_type: AvailabilityType):
+    def change_availability(self, availability_type: AvailabilityType) -> bool:
+        """Change connector status based on availability type provided.
+
+        Returns:
+            True if status changed
+        """
         if availability_type == AvailabilityType.inoperative:
             if self.status == ChargePointStatus.available:
                 self.status = ChargePointStatus.unavailable
