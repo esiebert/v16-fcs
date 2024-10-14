@@ -251,6 +251,7 @@ class FakeChargingStation(ChargePoint):
         if connector_id is None:
             return call_result.RemoteStartTransactionPayload(status=RemoteStartStopStatus.rejected)
         self.connectors[connector_id].id_tag = id_tag
+        self.connectors[connector_id].plugged_in = True
         return call_result.RemoteStartTransactionPayload(status=RemoteStartStopStatus.accepted)
 
     @after(Action.RemoteStartTransaction)
@@ -425,6 +426,32 @@ class FakeChargingStation(ChargePoint):
         request = call.DataTransferPayload(vendor_id=self.vendor, data=json.dumps(payload))
         LOGGER.debug("Sending DataTransfer")
         return await self.call(request)
+
+    def to_dict(self) -> dict[str, object]:
+        """Returns self in dictionary format."""
+        return {
+            "id": self.id,
+            "configuration": self.configuration,
+            "transaction_connector": self.transaction_connector,
+            "connected": self.connected,
+            "tx_start_charge": self.tx_start_charge,
+            "connectors": [
+                {
+                    "connector_id": c.id,
+                    "change_to_unavailable": c.change_to_unavailable,
+                    "pending_stop_tx": c.pending_stop_tx,
+                    "id_tag": c.id_tag,
+                    "transaction_id": c.transaction_id,
+                    "energy_import_register": c.energy_import_register,
+                    "power_offered": c.power_offered,
+                    "error_code": c.error_code,
+                    "plugged_in": c.plugged_in,
+                    "already_stopped": c.already_stopped,
+                    "status": c.status,
+                }
+                for c in self.connectors.values()
+            ],
+        }
 
 
 async def get_fcs(settings: Settings) -> FakeChargingStation:
