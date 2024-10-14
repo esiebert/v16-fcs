@@ -43,7 +43,7 @@ class FakeChargingStation(ChargePoint):
 
     def __init__(
         self,
-        id: int,
+        id: str,
         vendor: str,
         model: str,
         number_of_connectors: int = 1,
@@ -430,7 +430,7 @@ class FakeChargingStation(ChargePoint):
 async def get_fcs(settings: Settings) -> FakeChargingStation:
     """Build a FCS instance."""
     fcs = FakeChargingStation(
-        id=int(settings.cs_id),
+        id=settings.cs_id,
         vendor=settings.vendor,
         model=settings.model,
         number_of_connectors=settings.connectors,

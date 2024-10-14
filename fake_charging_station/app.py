@@ -30,21 +30,16 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """
     try:
         # Start a FCS and connect to WS
-        settings = get_settings()
-        if not settings.on_demand:
-            app.FCS = await get_fcs(settings=settings)  # type: ignore[attr-defined]
-        else:
-            LOGGER.info(
-                "Starting server without an FCS instance."
-                " Use the session_plan endpoint to create an FCS instance."
-            )
+        app.FCS = await get_fcs(settings=get_settings())  # type: ignore[attr-defined]
         yield
     except asyncio.exceptions.CancelledError:
         pass
     finally:
         # Stop FCS gracefully
-        if app.FCS:  # type: ignore[attr-defined]
+        try:
             await stop_fcs(fcs=app.FCS)  # type: ignore[attr-defined]
+        except Exception:
+            pass
 
 
 app = FastAPI(
