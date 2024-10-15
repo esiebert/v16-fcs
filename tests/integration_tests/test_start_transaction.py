@@ -1,4 +1,4 @@
-"""Tests for the start_transaction endpoint"""
+"""Tests for the start_transaction endpoint."""
 
 from fastapi import status
 from httpx import AsyncClient
