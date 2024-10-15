@@ -53,7 +53,8 @@ class FakeChargingStation(ChargePoint):
 
         self.id = id
         self.connectors = {
-            (i + 1): Connector(connector_id=(i + 1)) for i in range(number_of_connectors)
+            (i + 1): Connector(connector_id=(i + 1))
+            for i in range(number_of_connectors)
         }
         self.tasks: list[Task] = []
         self.vendor = vendor
@@ -86,7 +87,9 @@ class FakeChargingStation(ChargePoint):
                 extra_headers=extra_headers,
             )
         except Exception:
-            raise Exception("Server rejected WS connection. Is this CS configured in the CSMS?")
+            raise Exception(
+                "Server rejected WS connection. Is this CS configured in the CSMS?"
+            )
 
         # Start receiver task
         recv_task = create_task(self.start())
@@ -167,7 +170,9 @@ class FakeChargingStation(ChargePoint):
         LOGGER.info(f"Plugging in {connector_id=}")
 
         self.connectors[connector_id].plugged_in = True
-        await self.change_status(connector_id=connector_id, new_status=ChargePointStatus.preparing)
+        await self.change_status(
+            connector_id=connector_id, new_status=ChargePointStatus.preparing
+        )
 
         if rfid:
             LOGGER.info(f"Authenticating and starting transaction {connector_id=}")
@@ -194,7 +199,8 @@ class FakeChargingStation(ChargePoint):
             return False
 
         LOGGER.debug(
-            f"Auth status for {connector_id=} with {rfid}:" f" {resp.id_tag_info['status']}"
+            f"Auth status for {connector_id=} with {rfid}:"
+            f" {resp.id_tag_info['status']}"
         )
 
         if resp.id_tag_info["status"] == AuthorizationStatus.accepted:
@@ -205,7 +211,9 @@ class FakeChargingStation(ChargePoint):
             return True
         return False
 
-    async def change_status(self, connector_id: int, new_status: ChargePointStatus) -> None:
+    async def change_status(
+        self, connector_id: int, new_status: ChargePointStatus
+    ) -> None:
         """Change status of a connector.
 
         Send StatusNotification if status is different from previous one.
@@ -247,12 +255,18 @@ class FakeChargingStation(ChargePoint):
         self, id_tag: str, connector_id: int | None = None, chaging_profile=None
     ):
         """Handle RemoteStartTransaction request."""
-        LOGGER.info(f"Remote start transaction requested for {connector_id=} with {id_tag=}")
+        LOGGER.info(
+            f"Remote start transaction requested for {connector_id=} with {id_tag=}"
+        )
         if connector_id is None:
-            return call_result.RemoteStartTransactionPayload(status=RemoteStartStopStatus.rejected)
+            return call_result.RemoteStartTransactionPayload(
+                status=RemoteStartStopStatus.rejected
+            )
         self.connectors[connector_id].id_tag = id_tag
         self.connectors[connector_id].plugged_in = True
-        return call_result.RemoteStartTransactionPayload(status=RemoteStartStopStatus.accepted)
+        return call_result.RemoteStartTransactionPayload(
+            status=RemoteStartStopStatus.accepted
+        )
 
     @after(Action.RemoteStartTransaction)
     async def after_remote_start_transaction(
@@ -262,13 +276,17 @@ class FakeChargingStation(ChargePoint):
         if self.connectors[connector_id].id_tag is not None:
             await self.send_start_transaction(connector_id=connector_id)
 
-    async def send_stop_transaction(self, connector_id: int, reason: Reason | None = None) -> None:
+    async def send_stop_transaction(
+        self, connector_id: int, reason: Reason | None = None
+    ) -> None:
         """Stop transaction in a connector."""
         connector = self.connectors[connector_id]
         if connector.pending_stop_tx is None:
             transaction_id = cast(int, connector.transaction_id)
             id_tag = cast(str, connector.id_tag)
-            energy_import_register = round(cast(float, connector.energy_import_register))
+            energy_import_register = round(
+                cast(float, connector.energy_import_register)
+            )
         else:
             # Handle case where a stop transaction was pending e.g. the connector
             # was unplugged but we want to send the stop transaction afterwards
@@ -302,8 +320,12 @@ class FakeChargingStation(ChargePoint):
         """Handle RemoteStopTransaction request."""
         LOGGER.info(f"Remote stop transaction requested for {transaction_id=}")
         if transaction_id in self.transaction_connector.keys():
-            return call_result.RemoteStopTransactionPayload(status=RemoteStartStopStatus.accepted)
-        return call_result.RemoteStopTransactionPayload(status=RemoteStartStopStatus.rejected)
+            return call_result.RemoteStopTransactionPayload(
+                status=RemoteStartStopStatus.accepted
+            )
+        return call_result.RemoteStopTransactionPayload(
+            status=RemoteStartStopStatus.rejected
+        )
 
     @after(Action.RemoteStopTransaction)
     async def after_remote_stop_transaction(self, transaction_id: str):
@@ -328,7 +350,8 @@ class FakeChargingStation(ChargePoint):
         if connector_id == 0:
             LOGGER.debug("Sending StatusNotification for all connectors")
             return [
-                await _notify_status(connector=connector) for connector in self.connectors.values()
+                await _notify_status(connector=connector)
+                for connector in self.connectors.values()
             ]
 
         return await _notify_status(connector=self.connectors[connector_id])
@@ -382,15 +405,21 @@ class FakeChargingStation(ChargePoint):
         """Change configuration and return accepted status."""
         LOGGER.info(f"Setting {key=} to {value=}")
         self.configuration[key] = value
-        return call_result.ChangeConfigurationPayload(status=ConfigurationStatus.accepted)
+        return call_result.ChangeConfigurationPayload(
+            status=ConfigurationStatus.accepted
+        )
 
     @on(Action.ChangeAvailability)
     async def on_change_availability(self, connector_id: int, type: AvailabilityType):
         """Handle ChangeAvailability request."""
-        return call_result.ChangeAvailabilityPayload(status=ConfigurationStatus.accepted)
+        return call_result.ChangeAvailabilityPayload(
+            status=ConfigurationStatus.accepted
+        )
 
     @after(Action.ChangeAvailability)
-    async def after_change_availability(self, connector_id: int, type: AvailabilityType):
+    async def after_change_availability(
+        self, connector_id: int, type: AvailabilityType
+    ):
         """Action to be taken after handling ChangeAvailability request."""
         if self.connectors[connector_id].change_availability(type):
             await self.send_status_notification(connector_id=connector_id)
@@ -405,7 +434,9 @@ class FakeChargingStation(ChargePoint):
             LOGGER.warning(
                 f"Unable to set charging profile to {connector_id=}: not ready to charge"
             )
-            return call_result.SetChargingProfilePayload(status=ChargingProfileStatus.rejected)
+            return call_result.SetChargingProfilePayload(
+                status=ChargingProfileStatus.rejected
+            )
 
         connector.power_offered = float(
             cs_charging_profiles["charging_schedule"]["charging_schedule_period"][0][  # type: ignore[index]
@@ -413,7 +444,9 @@ class FakeChargingStation(ChargePoint):
             ]
         )
 
-        return call_result.SetChargingProfilePayload(status=ChargingProfileStatus.accepted)
+        return call_result.SetChargingProfilePayload(
+            status=ChargingProfileStatus.accepted
+        )
 
     @after(Action.SetChargingProfile)
     async def after_set_charging_profile(self, connector_id: int, *args, **kwargs):
@@ -423,7 +456,9 @@ class FakeChargingStation(ChargePoint):
 
     async def send_data_transfer(self, payload: dict[str, object] = {}):
         """Notify status of a connector."""
-        request = call.DataTransferPayload(vendor_id=self.vendor, data=json.dumps(payload))
+        request = call.DataTransferPayload(
+            vendor_id=self.vendor, data=json.dumps(payload)
+        )
         LOGGER.debug("Sending DataTransfer")
         return await self.call(request)
 
@@ -464,7 +499,9 @@ async def get_fcs(settings: Settings) -> FakeChargingStation:
         tx_start_charge=settings.quick_start_charging,
     )
 
-    basic_auth = {"Authorization": build_authorization_basic(settings.cs_id, settings.password)}
+    basic_auth = {
+        "Authorization": build_authorization_basic(settings.cs_id, settings.password)
+    }
 
     await fcs.boot_up(ws_url=settings.ws_url, extra_headers=basic_auth)
 
@@ -503,8 +540,12 @@ async def quick_start_fcs(fcs: FakeChargingStation, settings: Settings) -> None:
             connector_id=settings.quick_start_connector,
             cs_charging_profiles={
                 "charging_schedule": {
-                    "charging_schedule_period": [{"limit": settings.quick_start_charging}]
+                    "charging_schedule_period": [
+                        {"limit": settings.quick_start_charging}
+                    ]
                 }
             },
         )
-        await fcs.after_set_charging_profile(connector_id=settings.quick_start_connector)
+        await fcs.after_set_charging_profile(
+            connector_id=settings.quick_start_connector
+        )

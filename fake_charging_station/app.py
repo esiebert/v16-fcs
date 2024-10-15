@@ -54,7 +54,9 @@ async def rejected_request_exception_handler(
     request: Request, exc: FakeChargingStation.RejectedRequestError
 ) -> JSONResponse:
     """Return a 409 conflict HTTP response when a request was rejected."""
-    return JSONResponse(status_code=status.HTTP_409_CONFLICT, content={"detail": exc.message})
+    return JSONResponse(
+        status_code=status.HTTP_409_CONFLICT, content={"detail": exc.message}
+    )
 
 
 @app.post(
@@ -202,7 +204,11 @@ async def unplug_connector(connector_id: int = 1, stop_tx: bool = True):
     await app.FCS.unplug(connector_id=connector_id, stop_tx=stop_tx)  # type: ignore[attr-defined]
 
 
-@app.post("/fcs/data_transfer", status_code=status.HTTP_204_NO_CONTENT, tags=["charging_station"])
+@app.post(
+    "/fcs/data_transfer",
+    status_code=status.HTTP_204_NO_CONTENT,
+    tags=["charging_station"],
+)
 async def send_data_transfer(payload: dict[str, object] = {}):
     """Send a DataTransfer payload to the CSMS.
 
@@ -216,13 +222,17 @@ async def send_data_transfer(payload: dict[str, object] = {}):
     await app.FCS.send_data_transfer(payload=payload)  # type: ignore[attr-defined]
 
 
-@app.get("/fcs/internal_state", status_code=status.HTTP_200_OK, tags=["charging_station"])
+@app.get(
+    "/fcs/internal_state", status_code=status.HTTP_200_OK, tags=["charging_station"]
+)
 async def get_internal_state():
     """Get the internal state of the fake charging station, useful for debugging."""
     return {"state": app.FCS.to_dict()}  # type: ignore[attr-defined]
 
 
-@app.post("/fcs/disc", status_code=status.HTTP_204_NO_CONTENT, tags=["charging_station"])
+@app.post(
+    "/fcs/disc", status_code=status.HTTP_204_NO_CONTENT, tags=["charging_station"]
+)
 async def disconnect_from_csms():
     """Disconnect the FCS from the CSMS."""
     await app.FCS.disconnect()  # type: ignore[attr-defined]

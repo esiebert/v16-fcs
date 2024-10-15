@@ -21,7 +21,11 @@ class CustomFormatter(logging.Formatter):
         logging.INFO: format_prefix + cyan + format_level + reset + " " + format_sufix,
         logging.WARNING: format_prefix + yellow + format_level + reset + format_sufix,
         logging.ERROR: format_prefix + red + format_level + reset + format_sufix,
-        logging.CRITICAL: format_prefix + bold_red + format_level + reset + format_sufix,
+        logging.CRITICAL: format_prefix
+        + bold_red
+        + format_level
+        + reset
+        + format_sufix,
     }
 
     def format(self, record) -> str:
