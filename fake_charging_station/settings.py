@@ -2,7 +2,7 @@
 
 from functools import cache
 
-from pydantic import BaseSettings
+from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
@@ -18,13 +18,6 @@ class Settings(BaseSettings):
     quick_start_rfid: str | None = "12341234"
     quick_start_connector: int | None = 1
     quick_start_charging: int | None = None
-
-    class Config:
-        """Settings Config."""
-
-        env_nested_delimiter = "__"
-        allow_mutation = False
-        frozen = True
 
 
 @cache
