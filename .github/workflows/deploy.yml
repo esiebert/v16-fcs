@@ -24,3 +24,5 @@ jobs:
       run: |
         echo "Running commands in ${{ github.event.inputs.environment }} environment"
         echo "Run type: ${{ github.event.inputs.run_type }}"
+        pwd
+        ls .
