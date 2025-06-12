@@ -1,5 +1,5 @@
 # Fake Charging Station
-FCS is a v1.6 OCPP charging station simulator based on [Python OCPP's ChargePoint](https://github.com/mobilityhouse/ocpp), which also exposes an API in order to control the behavior of the charging station.
+FFCS is a v1.6 OCPP charging station simulator based on [Python OCPP's ChargePoint](https://github.com/mobilityhouse/ocpp), which also exposes an API in order to control the behavior of the charging station.
 
 I created this to help me test a [CSMS system](https://www.switch-ev.com/platform). My focus was to make it easy to use, control and force weird behaviors in order to test edge cases.
 
