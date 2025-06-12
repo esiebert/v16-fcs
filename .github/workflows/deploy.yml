@@ -2,15 +2,6 @@ name: Run Commands Manually
 
 on:
   workflow_dispatch:  # Allows manual triggering from GitHub UI
-    inputs:
-      environment:
-        description: 'Environment to run the script in'
-        required: true
-        default: 'development'
-      run_type:
-        description: 'Type of run (full/test)'
-        required: false
-        default: 'test'
 
 jobs:
   run-commands:
@@ -24,5 +15,4 @@ jobs:
       run: |
         echo "Running commands in ${{ github.event.inputs.environment }} environment"
         echo "Run type: ${{ github.event.inputs.run_type }}"
-        pwd
-        ls .
+        cat README.md
