@@ -22,7 +22,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Lifespan of the app.
 
     Runs up a FCS on application start up, and connects to the CSMS backend
-    through WebSocket. Once the application is shutdown, tries to disconnect
+    through WebSocket. Oncasdasdasda the application is shutdown, tries to disconnect
     the FCS gracefully with the CSMS.
 
     If the On Demand feature is activated, FCS only starts once a session plan
